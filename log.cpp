@@ -17,15 +17,10 @@
 
 #include "connections.h"
 #include "grep.h"
+#include "constant.h"
+#include "message.h"
 
 using namespace std;
-
-#define BUFFER_MAX (1024*1024*8)
-#define NODES_NUMBER (8)
-
-//  in ms
-#define SLEEP_TIME (50)
-#define MAX_LATENCY (2000)
 
 std::mutex printLogLock;
 
@@ -33,121 +28,15 @@ int SERVER_PORT;
 
 std::vector<std::stringstream> logs(NODES_NUMBER);
 std::vector<std::string> address;
+std::stringstream toFile;
 
-class message{
-public:
-    message(){ begin=0; length=BUFFER_MAX; };
-    int begin;
-    int length;
-};
-
-void printLog(char * result, int threadId){
+void printLog(char * result, int threadId)
+{
     printf("\n%s\n", result);
+    toFile << result;
     return;
 }
 
-int robustRead(int connFd, char * buffer, int length){
-    int count = 0, add = 0;
-    while(count < length){
-        if( (add = read(connFd, buffer, length)) > 0 ){
-            count += add;
-            buffer += add;
-        }
-        else if( add < 0 ){
-            return -10;
-        }
-        else if(add == 0){
-            break;
-        }
-    }
-    return count;
-}
-
-int robustWrite(int connFd, char * buffer, int length){
-    int count = 0, add = 0;
-    while(count < length){
-        if( ( add = write(connFd, buffer, length)) > 0 ){
-            count += add;
-            buffer += add;
-        }
-        else if( add < 0 ){
-            return -1;
-        }
-    }
-    return count;
-}
-
-//write large package on socket
-int splitWrite( int connFd, char * data, int size ){
-    
-    int msg_num = size / BUFFER_MAX + 1;
-    int rest = size % ((int)BUFFER_MAX);
-    
-    //store the should-be message sizes
-    message *msgs = new message[msg_num];
-    for(int i=1; i < msg_num; i++){
-        msgs[i].begin = msgs[i-1].begin + BUFFER_MAX;
-    }
-    msgs[msg_num-1].length = rest;
-
-    char writeSuccess = 0;
-    for(int i=0; i < msg_num; i++){
-        //write each message, max size is BUFFER_MAX
-        robustWrite( connFd, data + msgs[i].begin, msgs[i].length );
-        
-        //cout<<"Server: sent " << msgs[i].length << endl;
-        //usleep(200*1000);
-        
-        //make sure client do got the data
-        robustRead( connFd, &writeSuccess, 1 );
-        
-        //cout<<"Server: recv "<<(int)writeSuccess<<endl;
-        //usleep(200*1000);
-
-        //if package failed, send again
-        if(writeSuccess==0) i--;
-    }
-    return size;
-}
-
-int splitRead( int connFd, char * data, int size ){
-    
-    int msg_num = size / BUFFER_MAX + 1;
-    int rest = size % ((int)BUFFER_MAX);
-    
-    //store the should-be message sizes
-    message *msgs = new message[msg_num];
-    for(int i=1; i < msg_num; i++){
-        msgs[i].begin = msgs[i-1].begin + BUFFER_MAX;
-    }
-    msgs[msg_num-1].length = rest;
-
-    char readSuccess = 0;
-    int readSize;
-
-    for(int i=0; i < msg_num; i++){
-
-        //read message from socket. max size BUFFER_MAX
-        readSize = robustRead( connFd, data + msgs[i].begin, msgs[i].length );
-        
-        //cout<<"client recv size :" << readSize << endl;
-        //usleep(200*1000);
-
-        //check if reading success or not
-        if(readSize == msgs[i].length)  readSuccess = 1;
-        else    readSuccess = 0;
-
-        //tell server the data transmission status (good or fail)
-        robustWrite( connFd, &readSuccess, 1);
-        
-        //cout<<"Client: sent "<<endl;
-        //usleep(200*1000);
-        
-        //if reading faile, read again
-        if(readSuccess==0) i--;
-    }
-    return size;
-}
 
 //Server Thread
 void listeningThread(int serverPort)
@@ -156,7 +45,6 @@ void listeningThread(int serverPort)
     int listenFd = open_socket(serverPort);
     while(true)
     {
-
         int ret;
         
         int connFd = listen_socket(listenFd);
@@ -224,6 +112,7 @@ void listeningThread(int serverPort)
     }
 
     return;
+
 }
 
 //Client Thread
@@ -239,6 +128,7 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     }
     char* buffer = new char[BUFFER_MAX];
 
+
     char * cstr = new char [input.length()+1];
     strcpy (cstr, input.c_str());
 
@@ -251,11 +141,13 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     isReady.events = POLLIN;
     while(true){
         int ret = poll( &isReady, 1, MAX_LATENCY + SLEEP_TIME);
-        if(ret==0) {
+        if(ret==0) 
+        {
             printf("Client: the server %s is dead \n",address.c_str() );
-            //exit(0);
+            delete [] buffer;
+            delete [] cstr;
+            close(connectionToServer);
             return;
-            //kent
         }
         else{
             read(connectionToServer, buffer, BUFFER_MAX);
@@ -279,6 +171,9 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     char * result = new char[filesize];
     splitRead(connectionToServer, result, filesize );
     
+    //erase file descriptor information
+    //result[ strlen(result) - 2 ] = 0;
+    
     close(connectionToServer);
     delete [] buffer;
 
@@ -298,7 +193,7 @@ void getAdress(std::string filename)
 {
     ifstream addFile(filename);
 
-    for (int i = 0; i < NODES_NUMBER -1; ++i)
+    for (int i = 0; i < NODES_NUMBER; ++i)
     {
         std::string str;
         getline(addFile, str);
@@ -307,20 +202,24 @@ void getAdress(std::string filename)
     }
 }
 
-void listeningCin()
+void listeningCin(std::string input ="")
 {
+
     while (true)
     {
-        std::string input;
-        int connectionToServer;
-        std::cout << "Type 'grep' if you want to see logs: ";
-        getline(std::cin, input);
-        std::cout << "You entered: " << input << std::endl;
-
-        if (input.compare("exit") == 0)
+        bool flag = true;
+        if(input.compare("") == 0)
         {
-            std::cout << "Exiting normally " << std::endl;
-            exit(0);
+            std::cout << "Type 'grep' if you want to see logs: ";
+            getline(std::cin, input);
+            std::cout << "You entered: " << input << std::endl;
+
+            if (input.compare("exit") == 0)
+            {
+                std::cout << "Exiting normally " << std::endl;
+                exit(0);
+            }
+            flag = false;
         }
 
         getAdress("Address.add");
@@ -337,6 +236,15 @@ void listeningCin()
         for (auto& th : threads) th.join();
 
         printf("Client: mission completed!\n");
+
+        ofstream output("output.txt");
+        output << toFile.str();
+
+        if (flag)
+        {
+            exit(0);
+        }
+        input = "";
     }
 
     return;
@@ -350,15 +258,21 @@ int main (int argc, char* argv[])
 
     SERVER_PORT = atoi(argv[1]);
 
+    string input = "";
+    if(argc > 2)
+    {
+        input.append(argv[2]);
+    }
+
     std::cout << std::endl << "CS425 - MP1: Distributed Logging init." << std::endl;
 
     std::thread listeningServer(listeningThread, SERVER_PORT);
     usleep(700);
 
-    std::thread cinListening( listeningCin );
+    std::thread cinListening( listeningCin, input);
 
     cinListening.join();
     listeningServer.join();
-
+    
     return 0;
 }

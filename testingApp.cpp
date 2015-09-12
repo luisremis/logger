@@ -180,7 +180,7 @@ int main (int argc, char* argv[])
         std::cout << "DONE!" << std::endl;
         generateResults(test);
         // Call app
-        // system("./logger 45454 grep Log testLog.log")
+        system("./logger 45454 grep Log testLog.log")
         //check result
     }
 
