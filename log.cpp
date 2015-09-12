@@ -228,9 +228,9 @@ void listeningCin(std::string input ="")
 
         printf("Retriving information from remote machines... \n");
 
-        for (int i = 0; i < NODES_NUMBER-1; ++i)
+        for (int i = 0; i < NODES_NUMBER; ++i)
         {
-            threads.push_back(std::thread(connection_thread, input, address.at(i), SERVER_PORT, i+1));
+            threads.push_back(std::thread(connection_thread, input, address.at(i), SERVER_PORT, i));
         }
 
         for (auto& th : threads) th.join();
