@@ -103,7 +103,7 @@ std::string checkResults(int test)
                 exit(0);
             }
         }
-        std::cout << "Test 1 PASS!" << std::endl;
+        std::cout << "Test 2 PASS!" << std::endl;
     }
 
     return output.str();

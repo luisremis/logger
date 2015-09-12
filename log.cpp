@@ -46,6 +46,7 @@ void listeningThread(int serverPort)
     int listenFd = open_socket(serverPort);
     while(true)
     {
+
         int ret;
         
         int connFd = listen_socket(listenFd);
@@ -78,6 +79,7 @@ void listeningThread(int serverPort)
         //finish grepping
         systemCmd.join();
 
+        /*
         //check file exist
         struct stat st;
         if(stat( filename.c_str(), &st) != 0){
@@ -88,21 +90,34 @@ void listeningThread(int serverPort)
         int fd = open(filename.c_str(), O_RDONLY);
         void * filep = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         close( fd );
+        */
+
+        FILE* f = fopen(filename.c_str(), "r");
+        fseek(f, 0, SEEK_END);
+        size_t filesize = ftell(f);
+
+        char *filep = new char[filesize+1];
+        rewind(f);
+        fread(filep, sizeof(char), filesize, f);
+        filep[filesize] =0;
+        filesize++;
 
         buffer[0] = 0;
         buffer[1] = 8;
         buffer[2] = 8;
-        ((int*)buffer)[1] = st.st_size;
+        ((int*)buffer)[1] = filesize;
         //cout<<"Server: filesize: "<<st.st_size<<endl;
+
         robustWrite(connFd, buffer, 8);
 
         robustRead(connFd, buffer, 8);
 
-        splitWrite(connFd, (char*)filep, st.st_size);
+        splitWrite(connFd, (char*)filep, filesize);
+       
 
-        munmap( filep,  st.st_size );
         close(connFd);
         delete [] buffer;
+        delete [] filep;
 
         //cleanning tmp file on server
         string sysCmd = "rm ";
@@ -113,7 +128,6 @@ void listeningThread(int serverPort)
     }
 
     return;
-
 }
 
 //Client Thread
@@ -179,7 +193,7 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     delete [] buffer;
 
     printLogLock.lock();
-    printf("Logs from Machine %s: \n", address.c_str());
+    printf("Logs from Machine %s, size is %d: \n", address.c_str(), filesize);
     printLog( result, threadId );
     printLogLock.unlock();
     
@@ -247,6 +261,9 @@ void listeningCin(std::string input ="")
 
         ofstream output("output.txt");
         output << toFile.str();
+        //cout << "To be written in the file: " << std::endl;
+        //cout << toFile.str();
+        output.close();
 
         if (flag)
         {
