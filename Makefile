@@ -2,7 +2,7 @@
 #C compiler
 CC = g++
 
-SRC = log.cpp grep.cpp message.cpp connections.cpp
+SRC = log.cpp grep.cpp message.cpp connections.cpp ChronoCpu.cpp Chrono.cpp
 
 CC_FLAGS = -pthread -std=c++11
 

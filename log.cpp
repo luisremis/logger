@@ -19,6 +19,7 @@
 #include "grep.h"
 #include "constant.h"
 #include "message.h"
+#include "ChronoCpu.h"
 
 using namespace std;
 
@@ -228,6 +229,9 @@ void listeningCin(std::string input ="")
 
         printf("Retriving information from remote machines... \n");
 
+        ChronoCpu chrono("timer");
+        chrono.tic();
+
         for (int i = 0; i < NODES_NUMBER; ++i)
         {
             threads.push_back(std::thread(connection_thread, input, address.at(i), SERVER_PORT, i));
@@ -235,7 +239,11 @@ void listeningCin(std::string input ="")
 
         for (auto& th : threads) th.join();
 
-        printf("Client: mission completed!\n");
+        /* Your algorithm here */
+
+        chrono.tac();
+
+        printf("Client: mission completed in only %f s \n", (double)chrono.getElapsedStats().lastTime_ms/1000);
 
         ofstream output("output.txt");
         output << toFile.str();

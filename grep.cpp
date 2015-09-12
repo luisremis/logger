@@ -11,7 +11,7 @@ int grep_system( string output, string cmd, bool *grepFinished ){
 	system( (remove + output + " 2>&-").c_str() );	/*hide error*/
 
 	system( (cmd + ">>" + output).c_str() );
-	usleep(2500*1000);
+	//ruitusleep(2500*1000);
 	
 	*grepFinished = true;
 	
