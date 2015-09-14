@@ -204,6 +204,7 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     return;
 }
 
+/* Get address from other nodes: */
 void getAdress(std::string filename)
 {
     ifstream addFile(filename);
@@ -217,6 +218,9 @@ void getAdress(std::string filename)
     }
 }
 
+/* User thread: Waits for user to input a grep command 
+When receiving the grep command from command line (test cases uses this), 
+it will bypass the cin*/
 void listeningCin(std::string input ="")
 {
 
@@ -291,9 +295,11 @@ int main (int argc, char* argv[])
 
     std::cout << std::endl << "CS425 - MP1: Distributed Logging init." << std::endl;
 
+    /*Server Thread*/
     std::thread listeningServer(listeningThread, SERVER_PORT);
     usleep(700);
-
+    
+    /*User thread */
     std::thread cinListening( listeningCin, input);
 
     cinListening.join();
