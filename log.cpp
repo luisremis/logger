@@ -193,7 +193,7 @@ void connection_thread(std::string input, std::string address, int serverPort, i
     delete [] buffer;
 
     printLogLock.lock();
-    printf("Logs from Machine %s, size is %d: \n", address.c_str(), filesize);
+    printf("Logs from Machine %s\n", address.c_str());
     printLog( result, threadId );
     printLogLock.unlock();
     
